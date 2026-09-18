@@ -35,6 +35,22 @@ $ punch report week
 
 `punch report` also takes `all` to summarize the entire log.
 
+## Exporting for invoices
+
+`punch export [range]` prints the sessions in range as CSV instead of a
+summary, so you can hand it straight to a spreadsheet:
+
+```
+$ punch export week
+date,start,end,hours,note
+2026-09-01,09:00,13:30,4.50,
+2026-09-03,08:45,15:00,6.25,
+2026-09-05,09:14,11:21,2.10,fixed the invoice bug
+```
+
+Same range names as `report`: `today`, `week` (default), or `all`. A
+session that's still open is left with an empty `end`.
+
 ## The log file
 
 By default `punch` reads and writes `timesheet.log` in the current
@@ -66,4 +82,5 @@ Put the resulting binary somewhere on your `PATH`.
 
 ## Status
 
-Early. Clocking in/out and reporting work. See the roadmap for what's next.
+Early. Clocking in/out, reporting, and CSV export work. See the roadmap
+for what's next.

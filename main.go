@@ -29,6 +29,12 @@ func main() {
 			mode = args[0]
 		}
 		err = cmdReport(mode)
+	case "export":
+		mode := "week"
+		if len(args) > 0 {
+			mode = args[0]
+		}
+		err = cmdExport(mode)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -52,6 +58,8 @@ usage:
   punch status         show whether you're currently clocked in
   punch report [range] print a summary; range is one of:
                           today, week (default), all
+  punch export [range] print sessions in the range as CSV
+                          (date, start, end, hours, note)
 
 the log lives in ./timesheet.log by default. set TIMESHEET_FILE
 to point at a different file, e.g. one per client.

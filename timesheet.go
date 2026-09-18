@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -139,7 +141,10 @@ func cmdStatus() error {
 // describe "the shift I worked last night".
 type Session struct {
 	Day      string
+	Start    time.Time
+	End      time.Time
 	Duration time.Duration
+	Note     string
 	Ongoing  bool
 }
 
@@ -157,7 +162,10 @@ func buildSessions(entries []Entry) []Session {
 			if start != nil {
 				sessions = append(sessions, Session{
 					Day:      start.Format("2006-01-02"),
+					Start:    *start,
+					End:      e.Time,
 					Duration: e.Time.Sub(*start),
+					Note:     e.Note,
 				})
 				start = nil
 			}
@@ -167,6 +175,7 @@ func buildSessions(entries []Entry) []Session {
 	if start != nil {
 		sessions = append(sessions, Session{
 			Day:      start.Format("2006-01-02"),
+			Start:    *start,
 			Duration: time.Since(*start),
 			Ongoing:  true,
 		})
@@ -175,32 +184,50 @@ func buildSessions(entries []Entry) []Session {
 	return sessions
 }
 
+// rangeSince turns a report/export range name into the cutoff time a
+// session's day must fall on or after to be included.
+func rangeSince(mode string) (time.Time, error) {
+	switch mode {
+	case "today":
+		now := time.Now()
+		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()), nil
+	case "week":
+		return time.Now().AddDate(0, 0, -7), nil
+	case "all":
+		return time.Time{}, nil
+	default:
+		return time.Time{}, fmt.Errorf("unknown range %q (want today, week, or all)", mode)
+	}
+}
+
+// sessionsInRange filters completed and ongoing sessions down to those
+// whose day is on or after since.
+func sessionsInRange(entries []Entry, since time.Time) []Session {
+	var out []Session
+	for _, s := range buildSessions(entries) {
+		day, err := time.ParseInLocation("2006-01-02", s.Day, time.Local)
+		if err != nil || day.Before(since) {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
 func cmdReport(mode string) error {
 	entries, err := readEntries()
 	if err != nil {
 		return err
 	}
 
-	var since time.Time
-	switch mode {
-	case "today":
-		now := time.Now()
-		since = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	case "week":
-		since = time.Now().AddDate(0, 0, -7)
-	case "all":
-		since = time.Time{}
-	default:
-		return fmt.Errorf("unknown report range %q (want today, week, or all)", mode)
+	since, err := rangeSince(mode)
+	if err != nil {
+		return err
 	}
 
 	totals := map[string]time.Duration{}
 	ongoing := map[string]bool{}
-	for _, s := range buildSessions(entries) {
-		day, err := time.ParseInLocation("2006-01-02", s.Day, time.Local)
-		if err != nil || day.Before(since) {
-			continue
-		}
+	for _, s := range sessionsInRange(entries, since) {
 		totals[s.Day] += s.Duration
 		if s.Ongoing {
 			ongoing[s.Day] = true
@@ -230,6 +257,55 @@ func cmdReport(mode string) error {
 	fmt.Printf("%s  %8s\n", strings.Repeat("-", 10), formatDuration(grand))
 
 	return nil
+}
+
+// cmdExport writes one CSV row per session in the given range to stdout,
+// with hours as a decimal so the output can be dropped straight into an
+// invoice spreadsheet.
+func cmdExport(mode string) error {
+	entries, err := readEntries()
+	if err != nil {
+		return err
+	}
+
+	since, err := rangeSince(mode)
+	if err != nil {
+		return err
+	}
+
+	sessions := sessionsInRange(entries, since)
+	if len(sessions) == 0 {
+		return errors.New("no time logged in that range")
+	}
+
+	return writeCSV(os.Stdout, sessions)
+}
+
+func writeCSV(w io.Writer, sessions []Session) error {
+	cw := csv.NewWriter(w)
+	if err := cw.Write([]string{"date", "start", "end", "hours", "note"}); err != nil {
+		return err
+	}
+
+	for _, s := range sessions {
+		end := ""
+		if !s.Ongoing {
+			end = s.End.Format("15:04")
+		}
+		row := []string{
+			s.Day,
+			s.Start.Format("15:04"),
+			end,
+			fmt.Sprintf("%.2f", s.Duration.Hours()),
+			s.Note,
+		}
+		if err := cw.Write(row); err != nil {
+			return err
+		}
+	}
+
+	cw.Flush()
+	return cw.Error()
 }
 
 func formatDuration(d time.Duration) string {
