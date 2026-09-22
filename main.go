@@ -23,6 +23,16 @@ func main() {
 		err = cmdOut(strings.Join(args, " "))
 	case "status":
 		err = cmdStatus()
+	case "log":
+		err = cmdLog()
+	case "edit":
+		err = cmdEdit(args)
+	case "remove":
+		arg := ""
+		if len(args) > 0 {
+			arg = args[0]
+		}
+		err = cmdRemove(arg)
 	case "report":
 		mode := "week"
 		if len(args) > 0 {
@@ -56,6 +66,10 @@ usage:
   punch in [note]      clock in, optionally with a note
   punch out [note]     clock out
   punch status         show whether you're currently clocked in
+  punch log            list every entry with its line number
+  punch edit <n> <HH:MM> [note]
+                        fix the time (and optionally the note) of entry n
+  punch remove <n>     delete entry n
   punch report [range] print a summary; range is one of:
                           today, week (default), all
   punch export [range] print sessions in the range as CSV
@@ -63,5 +77,8 @@ usage:
 
 the log lives in ./timesheet.log by default. set TIMESHEET_FILE
 to point at a different file, e.g. one per client.
+
+use "punch log" to find the line number of a bad entry before
+running edit or remove.
 `)
 }

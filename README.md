@@ -69,8 +69,24 @@ optional note.
 2026-09-05T11:17:00-04:00	out	fixed the invoice bug
 ```
 
-Because it's just text, fixing a mistake (forgot to clock out, clocked in
-twice) is a matter of editing the file in any editor.
+Because it's just text you can always fix a mistake by hand in any editor,
+but `punch` also has commands for the common cases:
+
+```
+$ punch log
+  1  2026-09-05 09:14  in
+  2  2026-09-05 11:21  out   fixed the invoice bug
+
+$ punch edit 1 09:00
+updated entry 1: 2026-09-05 09:00 in
+
+$ punch remove 2
+removed entry 2: 2026-09-05 11:21 out
+```
+
+`edit` only changes the time (same day) and, if given, the note - it
+won't turn an `in` into an `out`. `remove` deletes the line outright.
+Both take the line number shown by `punch log`.
 
 ## Install
 
