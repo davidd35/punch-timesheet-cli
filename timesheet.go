@@ -326,6 +326,38 @@ func sessionsInRange(entries []Entry, since time.Time) []Session {
 	return out
 }
 
+// targetFromEnv reads the per-day target from TIMESHEET_TARGET, in decimal
+// hours ("7.5"). Unset or empty means no target, so nothing gets flagged.
+func targetFromEnv() (time.Duration, error) {
+	return parseTarget(os.Getenv("TIMESHEET_TARGET"))
+}
+
+func parseTarget(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, nil
+	}
+	h, err := strconv.ParseFloat(s, 64)
+	if err != nil || h < 0 || h > 24 {
+		return 0, fmt.Errorf("TIMESHEET_TARGET %q should be hours per day between 0 and 24, like 7.5", s)
+	}
+	return time.Duration(h * float64(time.Hour)), nil
+}
+
+// shortfall is how far a day's total is under target. It compares at
+// minute resolution because that's what the report prints; otherwise a day
+// shown as 7h30m against a 7.5 target could still be flagged short.
+func shortfall(worked, target time.Duration) time.Duration {
+	if target <= 0 {
+		return 0
+	}
+	diff := target.Round(time.Minute) - worked.Round(time.Minute)
+	if diff < 0 {
+		return 0
+	}
+	return diff
+}
+
 func cmdReport(mode string) error {
 	entries, err := readEntries()
 	if err != nil {
@@ -333,6 +365,11 @@ func cmdReport(mode string) error {
 	}
 
 	since, err := rangeSince(mode)
+	if err != nil {
+		return err
+	}
+
+	target, err := targetFromEnv()
 	if err != nil {
 		return err
 	}
@@ -362,6 +399,8 @@ func cmdReport(mode string) error {
 		mark := ""
 		if ongoing[d] {
 			mark = " (in progress)"
+		} else if short := shortfall(totals[d], target); short > 0 {
+			mark = " (short " + formatDuration(short) + ")"
 		}
 		fmt.Printf("%s  %8s%s\n", d, formatDuration(totals[d]), mark)
 		grand += totals[d]

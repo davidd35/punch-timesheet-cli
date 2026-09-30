@@ -35,6 +35,22 @@ $ punch report week
 
 `punch report` also takes `all` to summarize the entire log.
 
+## Daily target
+
+Set `TIMESHEET_TARGET` to the hours you aim for each day and `report` will
+mark days that came up short:
+
+```
+$ TIMESHEET_TARGET=7.5 punch report week
+2026-09-01      4h30m (short 3h00m)
+2026-09-03      8h15m
+2026-09-05      2h07m (in progress)
+----------     14h52m
+```
+
+Only days with logged time are listed, so a day with no entries at all is
+not flagged. A day that is still in progress is never marked short.
+
 ## Exporting for invoices
 
 `punch export [range]` prints the sessions in range as CSV instead of a

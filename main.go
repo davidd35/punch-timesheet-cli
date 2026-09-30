@@ -78,6 +78,9 @@ usage:
 the log lives in ./timesheet.log by default. set TIMESHEET_FILE
 to point at a different file, e.g. one per client.
 
+set TIMESHEET_TARGET to a number of hours per day (e.g. 7.5) and
+report marks any logged day that falls short of it.
+
 use "punch log" to find the line number of a bad entry before
 running edit or remove.
 `)
